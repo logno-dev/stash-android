@@ -9,6 +9,11 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withText
+import org.hamcrest.CoreMatchers.containsString
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -67,13 +72,14 @@ class ShareFlowTest {
             // An unreachable local port makes refresh fail promptly, without using a live account.
             server = "https://127.0.0.1:1"
             token = "test-token"
-            draft = Draft(url = "https://example.com", notes = "# Heading\n\n**Bold** and ~~old~~\n\n- [ ] Task")
+            draft = Draft(url = "https://example.com", notes = "# Heading\n\n**Bold** and ~~old~~\nFirst line\nSecond line\n\n- [ ] Task")
         }
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             compose.onNodeWithText("New note").assertIsDisplayed()
             compose.onNodeWithText("https://example.com").assertIsDisplayed()
             compose.onNodeWithText("Preview").performClick()
             compose.waitForIdle()
+            onView(withText(containsString("Bold and old\nFirst line\nSecond line"))).check(matches(isDisplayed()))
             // Reaching Write again checks the native Markdown view was created without crashing.
             compose.onNodeWithText("Write").performClick()
             compose.onNodeWithText("Notes · Markdown supported").assertIsDisplayed()

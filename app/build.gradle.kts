@@ -12,8 +12,8 @@ android {
         applicationId = "dev.logno.stash"
         minSdk = 26
         targetSdk = 35
-        versionCode = providers.gradleProperty("versionCode").orElse("100").get().toInt()
-        versionName = providers.gradleProperty("versionName").orElse("0.1.0").get()
+        versionCode = providers.gradleProperty("versionCode").orElse("101").get().toInt()
+        versionName = providers.gradleProperty("versionName").orElse("0.1.1").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
@@ -49,6 +49,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
@@ -68,4 +69,5 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }

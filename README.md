@@ -26,11 +26,16 @@ Release application ID: `dev.logno.stash`. Debug builds use `dev.logno.stash.deb
 | Search | All four fields: title, URL, notes, tags; typo-tolerant matching |
 | Notes-only filter | Shows records without links |
 | Markdown | Write/preview, headings, emphasis, lists, code, quotes, links, images, tables, strikethrough, task lists |
+| Read-only details | View on every card opens a spacious formatted note, full link, tags, and date; Back preserves list filters and scroll position |
 | Long lists | Compose lazy scrolling |
 | Open bookmark | Opens the link in your browser |
 | Shared links/text | Android share target with a prefilled, editable draft |
 
 Search is a native typo-tolerant implementation; rankings are not identical to the web app's Fuse.js ranking. Markdown uses native text views through Markwon rather than a WebView.
+
+Cards, Preview, and View preserve single typed line breaks as well as paragraph breaks while rendering Markdown formatting.
+
+The original Stash mustache appears in the app header and adaptive launcher icon, including Android themed-icon support.
 
 ### Sharing
 
@@ -91,7 +96,7 @@ git push origin v0.1.0
 
 The tag-triggered workflow tests, lints, builds an optimized signed APK, verifies its signature, and publishes it with a SHA-256 checksum file. Obtainium then sees the new release. Push a new increasing version tag for each update; do not reuse published tags.
 
-Stable tags must be `vMAJOR.MINOR.PATCH`, with major 0–999 and minor/patch 0–99. `versionCode = major * 10000 + minor * 100 + patch`, so `v0.1.0` is code 100 and `v0.1.1` is code 101. Version 0.0.0 is not supported. `versionName` comes from the tag. Local defaults are 0.1.0/code 100; override with Gradle `-PversionName=... -PversionCode=...` if needed.
+Stable tags must be `vMAJOR.MINOR.PATCH`, with major 0–999 and minor/patch 0–99. `versionCode = major * 10000 + minor * 100 + patch`, so `v0.1.0` is code 100 and `v0.1.1` is code 101. Version 0.0.0 is not supported. `versionName` comes from the tag. Local defaults are 0.1.1/code 101; override with Gradle `-PversionName=... -PversionCode=...` if needed.
 
 ## Repository layout
 

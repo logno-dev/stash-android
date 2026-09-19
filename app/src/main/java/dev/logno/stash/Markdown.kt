@@ -12,6 +12,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
 import io.noties.markwon.MarkwonConfiguration
+import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.ext.tasklist.TaskListPlugin
@@ -19,11 +20,13 @@ import io.noties.markwon.image.glide.GlideImagesPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 
 @Composable
-fun Markdown(content: String, onError: (String) -> Unit) {
+fun Markdown(content: String, onError: (String) -> Unit, spacious: Boolean = false) {
     val context = LocalContext.current
     val currentError = rememberUpdatedState(onError)
     val markwon = remember(context) {
         Markwon.builder(context)
+            // Notes should retain typed newlines, rather than Markdown's default soft-break spaces.
+            .usePlugin(SoftBreakAddsNewLinePlugin.create())
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
             .usePlugin(TaskListPlugin.create(context))
@@ -43,6 +46,8 @@ fun Markdown(content: String, onError: (String) -> Unit) {
             setTextIsSelectable(true)
         }
     }, update = { view ->
+        view.textSize = if (spacious) 17f else 15f
+        view.setLineSpacing(0f, if (spacious) 1.25f else 1f)
         if (view.tag != content) {
             markwon.setMarkdown(view, content)
             view.tag = content

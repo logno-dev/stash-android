@@ -4,7 +4,8 @@
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/ic_stash"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="Stash"
         android:supportsRtl="true"
         android:theme="@style/Theme.Stash"

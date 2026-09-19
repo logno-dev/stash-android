@@ -8,6 +8,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,7 +78,10 @@ private fun AuthScreen(model: StashViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Spacer(Modifier.height(24.dp))
-        Text("Stash", style = MaterialTheme.typography.displaySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            MustacheLogo()
+            Text("Stash", style = MaterialTheme.typography.displaySmall)
+        }
         Text(if (registering) "Create your account" else "Your links. Your notes.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (model.draft != null) Text("Your shared note is ready. Sign in to save it.", color = MaterialTheme.colorScheme.primary)
         Field(address, { address = it }, "Server address", model.busy, KeyboardType.Uri)
@@ -111,54 +116,21 @@ internal fun Field(value: String, change: (String) -> Unit, label: String, busy:
 }
 
 @Composable
+private fun MustacheLogo() {
+    Icon(painterResource(R.drawable.ic_mustache), contentDescription = null,
+        modifier = Modifier.width(42.dp).height(16.dp), tint = MaterialTheme.colorScheme.primary)
+}
+
+@Composable
 private fun BookmarkScreen(model: StashViewModel) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var notesOnly by rememberSaveable { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Bookmark?>(null) }
     var logout by remember { mutableStateOf(false) }
-    val filtered = remember(model.bookmarks, query, notesOnly) { searchBookmarks(model.bookmarks, query, notesOnly) }
-    val groups = remember(filtered) { filtered.groupBy { it.domain }.toSortedMap(String.CASE_INSENSITIVE_ORDER) }
-    val context = LocalContext.current
-
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Stash", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
-                TextButton(onClick = model::refresh, enabled = !model.busy) { Text("Refresh") }
-                TextButton(onClick = { logout = true }, enabled = !model.busy) { Text("Sign out") }
-            }
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                placeholder = { Text("Search links, notes, tags…") }, singleLine = true,
-                trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Clear") } })
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = notesOnly, onClick = { notesOnly = !notesOnly }, label = { Text("Notes only") })
-                Spacer(Modifier.weight(1f))
-                Text("${filtered.size} items", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (filtered.isEmpty()) item {
-                    Text(if (model.busy) "Loading your stash…" else if (query.isNotBlank()) "No matching notes or links."
-                        else if (notesOnly) "No notes without links yet." else "Your stash is empty. Add a note or share a link from another app.",
-                        Modifier.padding(vertical = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                groups.forEach { (domain, bookmarks) ->
-                    item(key = "domain:$domain") {
-                        Text("$domain · ${bookmarks.size}", Modifier.padding(top = 12.dp, bottom = 2.dp),
-                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    items(bookmarks, key = { it.id }, contentType = { "bookmark" }) { bookmark ->
-                        BookmarkCard(bookmark, model.busy,
-                            onOpen = { openLink(context, bookmark.url.orEmpty(), model::notify) },
-                            onEdit = { model.edit(Draft(bookmark.id, bookmark.url.orEmpty(), bookmark.notes.orEmpty(), bookmark.tags.orEmpty())) },
-                            onDelete = { deleting = bookmark }, onError = model::notify)
-                    }
-                }
-            }
-        }
-        ExtendedFloatingActionButton(onClick = { if (!model.busy) model.edit(Draft()) },
-            Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Text("+  New note") }
-    }
+    BookmarkBrowser(
+        bookmarks = model.bookmarks, busy = model.busy,
+        onRefresh = model::refresh, onSignOut = { logout = true },
+        onEdit = { model.edit(Draft(it.id, it.url.orEmpty(), it.notes.orEmpty(), it.tags.orEmpty())) },
+        onDelete = { deleting = it }, onAdd = { model.edit(Draft()) }, onError = model::notify,
+    )
     deleting?.let { bookmark ->
         AlertDialog(onDismissRequest = { if (!model.busy) deleting = null },
             title = { Text("Delete note?") }, text = { Text("“${bookmark.title}” will be permanently deleted.") },
@@ -172,7 +144,71 @@ private fun BookmarkScreen(model: StashViewModel) {
 }
 
 @Composable
-private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onEdit: () -> Unit,
+internal fun BookmarkBrowser(
+    bookmarks: List<Bookmark>, busy: Boolean,
+    onRefresh: () -> Unit, onSignOut: () -> Unit, onEdit: (Bookmark) -> Unit,
+    onDelete: (Bookmark) -> Unit, onAdd: () -> Unit, onError: (String) -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var notesOnly by rememberSaveable { mutableStateOf(false) }
+    var viewingId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val listState = rememberLazyListState()
+    val filtered = remember(bookmarks, query, notesOnly) { searchBookmarks(bookmarks, query, notesOnly) }
+    val groups = remember(filtered) { filtered.groupBy { it.domain }.toSortedMap(String.CASE_INSENSITIVE_ORDER) }
+    val context = LocalContext.current
+
+    val viewing = bookmarks.firstOrNull { it.id == viewingId }
+    if (viewing != null) {
+        BookmarkDetails(viewing, busy, onBack = { viewingId = null }, onEdit = { onEdit(viewing) }, onError = onError)
+        return
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                MustacheLogo()
+                Spacer(Modifier.width(10.dp))
+                Text("Stash", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onRefresh, enabled = !busy) { Text("Refresh") }
+                TextButton(onClick = onSignOut, enabled = !busy) { Text("Sign out") }
+            }
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                placeholder = { Text("Search links, notes, tags…") }, singleLine = true,
+                trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Clear") } })
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = notesOnly, onClick = { notesOnly = !notesOnly }, label = { Text("Notes only") })
+                Spacer(Modifier.weight(1f))
+                Text("${filtered.size} items", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            LazyColumn(state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (filtered.isEmpty()) item {
+                    Text(if (busy) "Loading your stash…" else if (query.isNotBlank()) "No matching notes or links."
+                        else if (notesOnly) "No notes without links yet." else "Your stash is empty. Add a note or share a link from another app.",
+                        Modifier.padding(vertical = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                groups.forEach { (domain, bookmarks) ->
+                    item(key = "domain:$domain") {
+                        Text("$domain · ${bookmarks.size}", Modifier.padding(top = 12.dp, bottom = 2.dp),
+                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    items(bookmarks, key = { it.id }, contentType = { "bookmark" }) { bookmark ->
+                        BookmarkCard(bookmark, busy,
+                            onOpen = { openLink(context, bookmark.url.orEmpty(), onError) },
+                            onView = { viewingId = bookmark.id },
+                            onEdit = { onEdit(bookmark) },
+                            onDelete = { onDelete(bookmark) }, onError = onError)
+                    }
+                }
+            }
+        }
+        ExtendedFloatingActionButton(onClick = { if (!busy) onAdd() },
+            Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Text("+  New note") }
+    }
+}
+
+@Composable
+private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onView: () -> Unit, onEdit: () -> Unit,
     onDelete: () -> Unit, onError: (String) -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,6 +224,7 @@ private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(displayDate(bookmark.createdAt), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onView) { Text("View") }
                 TextButton(onClick = onEdit, enabled = !busy) { Text("Edit") }
                 TextButton(onClick = onDelete, enabled = !busy) { Text("Delete") }
             }
@@ -195,7 +232,7 @@ private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, 
     }
 }
 
-private fun displayDate(raw: String?): String = runCatching {
+internal fun displayDate(raw: String?): String = runCatching {
     LocalDate.parse(raw.orEmpty().take(10)).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
 }.getOrDefault("")
 
