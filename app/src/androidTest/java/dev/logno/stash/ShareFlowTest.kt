@@ -76,6 +76,7 @@ class ShareFlowTest {
         }
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             compose.onNodeWithText("New note").assertIsDisplayed()
+            compose.onNodeWithText("Bookmark details").performClick()
             compose.onNodeWithText("https://example.com").assertIsDisplayed()
             compose.onNodeWithText("Preview").performClick()
             compose.waitForIdle()
