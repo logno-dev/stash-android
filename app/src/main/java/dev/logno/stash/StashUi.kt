@@ -125,20 +125,13 @@ private fun MustacheLogo() {
 
 @Composable
 private fun BookmarkScreen(model: StashViewModel) {
-    var deleting by remember { mutableStateOf<Bookmark?>(null) }
     var logout by remember { mutableStateOf(false) }
     BookmarkBrowser(
         bookmarks = model.bookmarks, busy = model.busy,
         onRefresh = model::refresh, onSignOut = { logout = true },
         onEdit = { model.edit(Draft(it.id, it.url.orEmpty(), it.notes.orEmpty(), it.tags.orEmpty())) },
-        onDelete = { deleting = it }, onAdd = { model.edit(Draft()) }, onError = model::notify,
+        onAdd = { model.edit(Draft()) }, onError = model::notify,
     )
-    deleting?.let { bookmark ->
-        AlertDialog(onDismissRequest = { if (!model.busy) deleting = null },
-            title = { Text("Delete note?") }, text = { Text("“${bookmark.title}” will be permanently deleted.") },
-            confirmButton = { TextButton(onClick = { model.delete(bookmark) { deleting = null } }, enabled = !model.busy) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deleting = null }, enabled = !model.busy) { Text("Cancel") } })
-    }
     if (logout) AlertDialog(onDismissRequest = { logout = false }, title = { Text("Sign out?") },
         text = { Text("You can sign back in to access your stash.") },
         confirmButton = { TextButton(onClick = { model.logout(); logout = false }) { Text("Sign out") } },
@@ -149,7 +142,7 @@ private fun BookmarkScreen(model: StashViewModel) {
 internal fun BookmarkBrowser(
     bookmarks: List<Bookmark>, busy: Boolean,
     onRefresh: () -> Unit, onSignOut: () -> Unit, onEdit: (Bookmark) -> Unit,
-    onDelete: (Bookmark) -> Unit, onAdd: () -> Unit, onError: (String) -> Unit,
+    onAdd: () -> Unit, onError: (String) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var notesOnly by rememberSaveable { mutableStateOf(false) }
@@ -190,8 +183,7 @@ internal fun BookmarkBrowser(
                     items(bookmarks, key = { it.id }, contentType = { "bookmark" }) { bookmark ->
                         BookmarkCard(bookmark, busy,
                             onOpen = { openLink(context, bookmark.url.orEmpty(), onError) },
-                            onSelect = { onEdit(bookmark) },
-                            onDelete = { onDelete(bookmark) })
+                            onSelect = { onEdit(bookmark) })
                     }
                 }
             }
@@ -202,9 +194,9 @@ internal fun BookmarkBrowser(
 }
 
 @Composable
-private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onSelect: () -> Unit,
-    onDelete: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)), modifier = Modifier.fillMaxWidth()) {
+private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onSelect: () -> Unit) {
+    Card(onClick = onSelect, enabled = !busy,
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(bookmark.title, style = MaterialTheme.typography.titleMedium)
             if (!bookmark.url.isNullOrBlank()) {
@@ -216,12 +208,8 @@ private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, 
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!bookmark.tags.isNullOrBlank()) Text(bookmark.tags.split(',').map(String::trim).filter(String::isNotEmpty)
                 .joinToString("  ") { "#$it" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(displayDate(bookmark.createdAt), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onSelect, enabled = !busy) { Text("Open") }
-                TextButton(onClick = onDelete, enabled = !busy) { Text("Delete") }
-            }
+            Text(displayDate(bookmark.createdAt), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -241,10 +229,11 @@ private fun NoteScreen(model: StashViewModel) {
     val draft = model.draft ?: return
     val original = remember(draft.id) { draft }
     val bookmark = draft.id?.let { id -> model.bookmarks.firstOrNull { it.id == id } }
-    var preview by rememberSaveable(draft.id) { mutableStateOf(draft.id != null) }
+    var preview by rememberSaveable(draft.id) { mutableStateOf(false) }
     var showDetails by rememberSaveable(draft.id) { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var discard by rememberSaveable { mutableStateOf(false) }
+    var deleting by rememberSaveable(draft.id) { mutableStateOf(false) }
     fun close() {
         if (draft == original) model.closeDraft() else discard = true
     }
@@ -284,6 +273,8 @@ private fun NoteScreen(model: StashViewModel) {
                 bookmark?.let {
                     Text(listOf(it.domain, displayDate(it.createdAt)).filter(String::isNotBlank).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { deleting = true }, enabled = !model.busy,
+                        contentPadding = PaddingValues(horizontal = 0.dp)) { Text("Delete note") }
                 }
             }
         }
@@ -295,4 +286,9 @@ private fun NoteScreen(model: StashViewModel) {
         text = { Text("Your unsaved changes will be removed.") },
         confirmButton = { TextButton(onClick = { discard = false; model.closeDraft() }) { Text("Discard") } },
         dismissButton = { TextButton(onClick = { discard = false }) { Text("Keep editing") } })
+    if (deleting && bookmark != null) AlertDialog(onDismissRequest = { if (!model.busy) deleting = false },
+        title = { Text("Delete note?") }, text = { Text("“${bookmark.title}” will be permanently deleted.") },
+        confirmButton = { TextButton(onClick = { model.delete(bookmark) { deleting = false; model.closeDraft() } },
+            enabled = !model.busy) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = { deleting = false }, enabled = !model.busy) { Text("Cancel") } })
 }

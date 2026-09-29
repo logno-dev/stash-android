@@ -25,12 +25,12 @@ class BookmarkViewTest {
         restoration.setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 BookmarkBrowser(listOf(note, link), false, {}, {},
-                    onEdit = { opened = it }, onDelete = {}, onAdd = {}, onError = {})
+                    onEdit = { opened = it }, onAdd = {}, onError = {})
             }
         }
         compose.onNodeWithText("Notes only").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("reading")
-        compose.onNodeWithText("Open").performClick()
+        compose.onNodeWithText("Reading list").performClick()
         assertEquals(note, opened)
         compose.onNodeWithText("#reading  #personal").assertIsDisplayed()
 
@@ -38,7 +38,8 @@ class BookmarkViewTest {
         compose.onNodeWithText("Notes only").assertIsSelected()
         compose.onNode(hasSetTextAction()).assertTextContains("reading")
         compose.onNodeWithText("Reading reference").assertDoesNotExist()
-        compose.onNodeWithText("Open").assertIsDisplayed()
+        compose.onNodeWithText("Open").assertDoesNotExist()
+        compose.onNodeWithText("Delete").assertDoesNotExist()
     }
 
     @Test fun linkCardKeepsBrowserActionAndUsesOneOpenAction() {
@@ -46,11 +47,11 @@ class BookmarkViewTest {
         compose.setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 BookmarkBrowser(listOf(link), false, {}, {}, onEdit = { opened = it },
-                    onDelete = {}, onAdd = {}, onError = {})
+                    onAdd = {}, onError = {})
             }
         }
         compose.onNodeWithText(link.url!!).assertIsDisplayed()
-        compose.onNodeWithText("Open").performClick()
+        compose.onNodeWithText("Reading reference").performClick()
         assertEquals(link, opened)
         compose.onNodeWithText("Edit").assertDoesNotExist()
         compose.onNodeWithText("View").assertDoesNotExist()
