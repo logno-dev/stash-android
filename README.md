@@ -26,20 +26,20 @@ Release application ID: `dev.logno.stash`. Debug builds use `dev.logno.stash.deb
 | Search | All four fields: title, URL, notes, tags; typo-tolerant matching |
 | Notes-only filter | Shows records without links |
 | Markdown | Write/preview, headings, emphasis, lists, code, quotes, links, images, tables, strikethrough, task lists |
-| Read-only details | View on every card opens a spacious formatted note, full link, tags, and date; Back preserves list filters and scroll position |
+| Unified note view | Open on every card enters one spacious read/write screen; notes open in Preview, with bookmark details and tags kept secondary |
 | Long lists | Compose lazy scrolling |
 | Open bookmark | Opens the link in your browser |
 | Shared links/text | Android share target with a prefilled, editable draft |
 
 Search is a native typo-tolerant implementation; rankings are not identical to the web app's Fuse.js ranking. Markdown uses native text views through Markwon rather than a WebView.
 
-Cards, Preview, and View preserve single typed line breaks as well as paragraph breaks while rendering Markdown formatting.
+Preview preserves single typed line breaks as well as paragraph breaks while rendering Markdown formatting. Markdown syntax help is available from the note toolbar without taking space from the editor.
 
 The original Stash mustache appears in the app header and adaptive launcher icon, including Android themed-icon support.
 
 ### Sharing
 
-From a browser or another app, select **Share → Stash**. Stash extracts the first HTTP(S) link, preserves the full shared text and subject as notes, and opens an editor. Review or add tags, then tap **Save**. Text without a link becomes a standalone note. Additional links remain in the notes.
+From a browser or another app, select **Share → Stash**. Stash extracts the first HTTP(S) link, preserves the full shared text and subject as notes, and opens an editor. Expand **Bookmark details** to review the link or add tags, then tap **Save**. Text without a link becomes a standalone note. Additional links remain in the notes.
 
 Sharing works when the app is closed, already running, or signed out. Drafts survive activity/process recreation and login. If a draft is already open, subsequent shares are queued and opened after saving or discarding the current draft. Saving requires a network connection; failed saves retain the draft. Explicit sign-out clears local drafts and the session.
 

@@ -36,13 +36,14 @@ class StashApiTest {
     @Test fun `create and update serialize nullable links and correct methods`() = runTest {
         for (id in listOf(null, 1)) {
             server.enqueue(MockResponse().setBody(bookmark))
-            api.save(address(), "session", Draft(id = id, notes = " hello "))
+            api.save(address(), "session", Draft(id = id, notes = " hello ", tags = " reading, personal "))
             val request = server.takeRequest()
             assertEquals(if (id == null) "POST" else "PUT", request.method)
             assertEquals(if (id == null) "/api/bookmarks" else "/api/bookmarks/1", request.path)
             val body = Json.parseToJsonElement(request.body.readUtf8()).jsonObject
             assertEquals(JsonNull, body["url"])
             assertEquals("hello", body["notes"]!!.jsonPrimitive.content)
+            assertEquals("reading, personal", body["tags"]!!.jsonPrimitive.content)
         }
     }
     @Test fun `unauthorized response retains status for session expiry handling`() = runTest {

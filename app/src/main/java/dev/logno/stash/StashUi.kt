@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +41,7 @@ private val StashColors = darkColorScheme(
 fun StashApp(model: StashViewModel) {
     MaterialTheme(colorScheme = StashColors) {
         val snackbar = remember { SnackbarHostState() }
+        val stateHolder = rememberSaveableStateHolder()
         LaunchedEffect(model.message) {
             model.message?.let {
                 snackbar.showSnackbar(it, withDismissAction = true)
@@ -55,8 +57,8 @@ fun StashApp(model: StashViewModel) {
                     if (model.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     when {
                         !model.loggedIn -> AuthScreen(model)
-                        model.draft != null -> EditorScreen(model)
-                        else -> BookmarkScreen(model)
+                        model.draft != null -> stateHolder.SaveableStateProvider("note") { NoteScreen(model) }
+                        else -> stateHolder.SaveableStateProvider("bookmarks") { BookmarkScreen(model) }
                     }
                 }
             }
@@ -151,17 +153,10 @@ internal fun BookmarkBrowser(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var notesOnly by rememberSaveable { mutableStateOf(false) }
-    var viewingId by rememberSaveable { mutableStateOf<Int?>(null) }
     val listState = rememberLazyListState()
     val filtered = remember(bookmarks, query, notesOnly) { searchBookmarks(bookmarks, query, notesOnly) }
     val groups = remember(filtered) { filtered.groupBy { it.domain }.toSortedMap(String.CASE_INSENSITIVE_ORDER) }
     val context = LocalContext.current
-
-    val viewing = bookmarks.firstOrNull { it.id == viewingId }
-    if (viewing != null) {
-        BookmarkDetails(viewing, busy, onBack = { viewingId = null }, onEdit = { onEdit(viewing) }, onError = onError)
-        return
-    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -195,9 +190,8 @@ internal fun BookmarkBrowser(
                     items(bookmarks, key = { it.id }, contentType = { "bookmark" }) { bookmark ->
                         BookmarkCard(bookmark, busy,
                             onOpen = { openLink(context, bookmark.url.orEmpty(), onError) },
-                            onView = { viewingId = bookmark.id },
-                            onEdit = { onEdit(bookmark) },
-                            onDelete = { onDelete(bookmark) }, onError = onError)
+                            onSelect = { onEdit(bookmark) },
+                            onDelete = { onDelete(bookmark) })
                     }
                 }
             }
@@ -208,8 +202,8 @@ internal fun BookmarkBrowser(
 }
 
 @Composable
-private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onView: () -> Unit, onEdit: () -> Unit,
-    onDelete: () -> Unit, onError: (String) -> Unit) {
+private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onSelect: () -> Unit,
+    onDelete: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(bookmark.title, style = MaterialTheme.typography.titleMedium)
@@ -218,14 +212,14 @@ private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, 
                     Text(bookmark.url, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (!bookmark.notes.isNullOrBlank()) Markdown(bookmark.notes, onError)
+            if (!bookmark.notes.isNullOrBlank()) Text(bookmark.notes, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!bookmark.tags.isNullOrBlank()) Text(bookmark.tags.split(',').map(String::trim).filter(String::isNotEmpty)
                 .joinToString("  ") { "#$it" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(displayDate(bookmark.createdAt), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onView) { Text("View") }
-                TextButton(onClick = onEdit, enabled = !busy) { Text("Edit") }
+                TextButton(onClick = onSelect, enabled = !busy) { Text("Open") }
                 TextButton(onClick = onDelete, enabled = !busy) { Text("Delete") }
             }
         }
@@ -243,40 +237,61 @@ internal fun openLink(context: Context, url: String, onError: (String) -> Unit) 
 }
 
 @Composable
-private fun EditorScreen(model: StashViewModel) {
+private fun NoteScreen(model: StashViewModel) {
     val draft = model.draft ?: return
-    var preview by rememberSaveable { mutableStateOf(false) }
+    val original = remember(draft.id) { draft }
+    val bookmark = draft.id?.let { id -> model.bookmarks.firstOrNull { it.id == id } }
+    var preview by rememberSaveable(draft.id) { mutableStateOf(draft.id != null) }
+    var showDetails by rememberSaveable(draft.id) { mutableStateOf(false) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
     var discard by rememberSaveable { mutableStateOf(false) }
-    BackHandler { if (!model.busy) discard = true }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    fun close() {
+        if (draft == original) model.closeDraft() else discard = true
+    }
+    BackHandler { if (!model.busy) close() }
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (draft.id == null) "New note" else "Edit note", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = { discard = true }, enabled = !model.busy) { Text("Cancel") }
+            Text(bookmark?.title ?: if (draft.id == null) "New note" else "Note", Modifier.weight(1f),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.headlineSmall)
+            TextButton(onClick = ::close, enabled = !model.busy) { Text(if (draft.id == null) "Cancel" else "Close") }
             Button(onClick = model::save, enabled = !model.busy) { Text("Save") }
         }
         if (model.queuedCount > 0) Text("${model.queuedCount} shared notes waiting", color = MaterialTheme.colorScheme.primary)
-        Field(draft.url, { model.edit(draft.copy(url = it)) }, "Link (optional)", model.busy, KeyboardType.Uri)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterChip(selected = !preview, onClick = { preview = false }, label = { Text("Write") })
             FilterChip(selected = preview, onClick = { preview = true }, label = { Text("Preview") })
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { showHelp = true }) { Text("Markdown help") }
         }
         if (preview) {
-            Surface(Modifier.fillMaxWidth().heightIn(min = 220.dp), color = Color(0xFF1A1C20), shape = MaterialTheme.shapes.medium) {
-                Box(Modifier.padding(16.dp)) { Markdown(draft.notes.ifBlank { "Nothing to preview." }, model::notify) }
+            Surface(Modifier.fillMaxWidth().weight(1f), color = Color(0xFF1A1C20), shape = MaterialTheme.shapes.medium) {
+                Box(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Markdown(draft.notes.ifBlank { "No notes added." }, model::notify, spacious = true)
+                }
             }
         } else {
             OutlinedTextField(draft.notes, { model.edit(draft.copy(notes = it)) },
-                Modifier.fillMaxWidth().heightIn(min = 220.dp), enabled = !model.busy,
-                label = { Text("Notes · Markdown supported") }, minLines = 8)
-            Text("**bold**  *italic*  ~~strikethrough~~\n# Heading   - List   - [ ] Task\n[link](https://…)   `code`   > Quote",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Modifier.fillMaxWidth().weight(1f), enabled = !model.busy,
+                label = { Text("Notes · Markdown supported") })
         }
-        Field(draft.tags, { model.edit(draft.copy(tags = it)) }, "Tags (comma separated)", model.busy)
-        Text("Links get their title automatically. Leave the link empty to create a standalone note.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { showDetails = !showDetails }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+            Text(if (showDetails) "Hide details" else "${if (draft.url.isBlank()) "Note" else "Bookmark"} details")
+        }
+        if (showDetails) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Field(draft.url, { model.edit(draft.copy(url = it)) }, "Link (optional)", model.busy, KeyboardType.Uri)
+                Field(draft.tags, { model.edit(draft.copy(tags = it)) }, "Tags (comma separated)", model.busy)
+                bookmark?.let {
+                    Text(listOf(it.domain, displayDate(it.createdAt)).filter(String::isNotBlank).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
-    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Discard this draft?") },
+    if (showHelp) AlertDialog(onDismissRequest = { showHelp = false }, title = { Text("Markdown help") },
+        text = { Text("**bold**  *italic*  ~~strikethrough~~\n# Heading   - List   - [ ] Task\n[link](https://...)   `code`   > Quote") },
+        confirmButton = { TextButton(onClick = { showHelp = false }) { Text("Close") } })
+    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Discard changes?") },
         text = { Text("Your unsaved changes will be removed.") },
         confirmButton = { TextButton(onClick = { discard = false; model.closeDraft() }) { Text("Discard") } },
         dismissButton = { TextButton(onClick = { discard = false }) { Text("Keep editing") } })
