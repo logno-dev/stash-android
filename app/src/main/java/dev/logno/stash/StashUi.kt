@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -196,7 +197,8 @@ internal fun BookmarkBrowser(
 @Composable
 private fun BookmarkCard(bookmark: Bookmark, busy: Boolean, onOpen: () -> Unit, onSelect: () -> Unit) {
     Card(onClick = onSelect, enabled = !busy,
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)), modifier = Modifier.fillMaxWidth()) {
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C20)),
+        modifier = Modifier.fillMaxWidth().testTag("bookmark-${bookmark.id}")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(bookmark.title, style = MaterialTheme.typography.titleMedium)
             if (!bookmark.url.isNullOrBlank()) {

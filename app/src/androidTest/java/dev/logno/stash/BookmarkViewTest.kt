@@ -30,7 +30,7 @@ class BookmarkViewTest {
         }
         compose.onNodeWithText("Notes only").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("reading")
-        compose.onNodeWithText("Reading list").performClick()
+        compose.onNodeWithTag("bookmark-${note.id}").performClick()
         assertEquals(note, opened)
         compose.onNodeWithText("#reading  #personal").assertIsDisplayed()
 
@@ -51,7 +51,7 @@ class BookmarkViewTest {
             }
         }
         compose.onNodeWithText(link.url!!).assertIsDisplayed()
-        compose.onNodeWithText("Reading reference").performClick()
+        compose.onNodeWithTag("bookmark-${link.id}").performClick()
         assertEquals(link, opened)
         compose.onNodeWithText("Edit").assertDoesNotExist()
         compose.onNodeWithText("View").assertDoesNotExist()
