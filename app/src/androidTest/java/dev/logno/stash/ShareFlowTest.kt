@@ -2,10 +2,8 @@ package dev.logno.stash
 
 import android.content.Context
 import android.content.Intent
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -77,7 +75,7 @@ class ShareFlowTest {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             compose.onNodeWithText("New note").assertIsDisplayed()
             compose.onNodeWithText("Bookmark details").performClick()
-            compose.onNodeWithText("https://example.com").assertIsDisplayed()
+            compose.onNode(hasSetTextAction() and hasText("https://example.com")).assertExists()
             compose.onNodeWithText("Preview").performClick()
             compose.waitForIdle()
             onView(withText(containsString("Bold and old\nFirst line\nSecond line"))).check(matches(isDisplayed()))
