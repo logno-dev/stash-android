@@ -74,8 +74,6 @@ class ShareFlowTest {
         }
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             compose.onNodeWithText("New note").assertIsDisplayed()
-            compose.onNodeWithText("Bookmark details").performClick()
-            compose.onNodeWithText("Hide details").assertExists().performClick()
             compose.onNodeWithText("Preview").performClick()
             compose.waitForIdle()
             onView(withText(containsString("Bold and old\nFirst line\nSecond line"))).check(matches(isDisplayed()))
