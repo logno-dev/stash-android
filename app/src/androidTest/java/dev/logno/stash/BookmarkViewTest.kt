@@ -2,6 +2,7 @@ package dev.logno.stash
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -30,7 +31,7 @@ class BookmarkViewTest {
         }
         compose.onNodeWithText("Notes only").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("reading")
-        compose.onNodeWithTag("bookmark-${note.id}").performClick()
+        compose.onNodeWithTag("bookmark-${note.id}").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(note, opened)
         compose.onNodeWithText("#reading  #personal").assertIsDisplayed()
 
@@ -51,7 +52,7 @@ class BookmarkViewTest {
             }
         }
         compose.onNodeWithText(link.url!!).assertIsDisplayed()
-        compose.onNodeWithTag("bookmark-${link.id}").performClick()
+        compose.onNodeWithTag("bookmark-${link.id}").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(link, opened)
         compose.onNodeWithText("Edit").assertDoesNotExist()
         compose.onNodeWithText("View").assertDoesNotExist()
